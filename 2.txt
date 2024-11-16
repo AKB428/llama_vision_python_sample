@@ -1,5 +1,0 @@
-
-python3.11 vision1.py ~/akasaka/IMG_3855.JPG
-
-', 'content': 'This image depicts a young woman dressed as a bride, adorned in a white wedding dress and holding a bouquet of flowers. She has dark hair tied up with a ribbon and striking red eyes. The background is blurred, but it appears to be a room with a window and a doorway, suggesting that the photo was taken at home or in a studio.'}, 'done_reason': 'stop', 'done': True, 'total_duration': 175199968791, 'load_duration': 4392923583, 'prompt_eval_count': 18, 'prompt_eval_duration': 157342000000, 'eval_count': 71, 'eval_duration': 13191000000}
-kanda@~/code/akb428/ollama_python_sample:
