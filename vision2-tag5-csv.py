@@ -2,9 +2,12 @@ import ollama
 import sys
 import json
 import re
+import csv
 from datetime import datetime, timedelta, timezone
+import os  # ファイルの存在確認に使用
 
 inputImageFile = sys.argv[1]
+csv_file = "output.csv"
 
 # 画像を解析してレスポンスを取得
 response = ollama.chat(
@@ -26,14 +29,10 @@ response = ollama.chat(
 
 # 日本時間変換とフォーマット
 def convert_to_japan_time(utc_time_str):
-    # 余分な小数点以下をトリム
     if "." in utc_time_str:
         utc_time_str = utc_time_str.split(".")[0] + "Z"
-    # UTC形式をdatetimeオブジェクトに変換し、タイムゾーンを明示
     utc_time = datetime.strptime(utc_time_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    # 日本時間（UTC+9）に変換
     japan_time = utc_time.astimezone(timezone(timedelta(hours=9)))
-    # 日本時間をフォーマット
     return japan_time.strftime("%Y-%m-%d %H:%M:%S")
 
 # content中からJSON形式を抽出する関数
@@ -44,13 +43,33 @@ def extract_json_from_content(content):
         return match.group(0)
     return None
 
+# CSV追記書き込み
+def append_to_csv(filename, model, created_at, total_duration, load_duration, prompt_eval_count,
+                  prompt_eval_duration, eval_count, eval_duration, content, tags, rating):
+    # ヘッダー行を定義
+    headers = [
+        "filename", "Model", "Created At (JST)", "Total Duration", "Load Duration", 
+        "Prompt Eval Count", "Prompt Eval Duration", "Eval Count", "Eval Duration", 
+        "content", "tag1", "tag2", "tag3", "tag4", "tag5", "rating"
+    ]
+    # ファイルが存在しない場合はヘッダーを追加
+    file_exists = os.path.isfile(csv_file)
+    with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(headers)  # ヘッダー行の書き込み
+        # データ行の書き込み
+        row = [
+            filename, model, created_at, f"{total_duration:.2f}s", f"{load_duration:.2f}s",
+            prompt_eval_count, f"{prompt_eval_duration:.2f}s", eval_count, f"{eval_duration:.2f}s",
+            content
+        ] + tags + [""] * (5 - len(tags)) + [rating]  # タグが5つ未満の場合は空文字を追加
+        writer.writerow(row)
+
 # レスポンスをきれいに表示
 print("Response Details:")
 try:
-    # 時間の変換
     created_at_japan = convert_to_japan_time(response['created_at'])
-
-    # 秒に変換して表示
     total_duration_sec = response['total_duration'] / 1_000_000_000
     load_duration_sec = response['load_duration'] / 1_000_000_000
     prompt_eval_duration_sec = response['prompt_eval_duration'] / 1_000_000_000
@@ -65,29 +84,44 @@ try:
     print(f"  Eval Count: {response['eval_count']}")
     print(f"  Eval Duration: {eval_duration_sec:.2f}s")
 
-    # JSONパースを試行
     content = response['message']['content']
     print("\nParsed Content:")
+    tags = []
+    rating = ""
     try:
-        parsed_json = json.loads(content)  # JSONパース
+        parsed_json = json.loads(content)
+        tags = parsed_json.get("tag", [])
+        rating = parsed_json.get("rating", "")
     except json.JSONDecodeError:
-        # JSONパースエラーが発生した場合、contentからJSON部分を抽出
         print(content)
         print("\nError: Failed to parse 'content' as JSON. Attempting to extract JSON from content...")
         extracted_json = extract_json_from_content(content)
         if extracted_json:
             print("Extracted JSON found:")
             parsed_json = json.loads(extracted_json)
+            tags = parsed_json.get("tag", [])
+            rating = parsed_json.get("rating", "")
         else:
-            raise ValueError("No valid JSON could be extracted from the content.")
+            print("No valid JSON could be extracted from the content.")
+    finally:
+        # CSV書き込み
+        append_to_csv(
+            filename=inputImageFile,
+            model=response['model'],
+            created_at=created_at_japan,
+            total_duration=total_duration_sec,
+            load_duration=load_duration_sec,
+            prompt_eval_count=response['prompt_eval_count'],
+            prompt_eval_duration=prompt_eval_duration_sec,
+            eval_count=response['eval_count'],
+            eval_duration=eval_duration_sec,
+            content=content,
+            tags=tags,
+            rating=rating
+        )
+        print("Data appended to CSV.")
 
-    # 抽出・パースしたJSONをきれいに整形して表示
-    print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
+    print(json.dumps({"tag": tags, "rating": rating}, indent=2, ensure_ascii=False))
 
-except json.JSONDecodeError:
-    print("\nError: Unable to parse content into JSON and no valid JSON could be extracted.")
-    print(f"Raw Content: {response['message']['content']}")
-except KeyError as e:
-    print(f"\nError: Missing key in response: {e}")
 except Exception as e:
     print(f"\nUnexpected Error: {e}")
