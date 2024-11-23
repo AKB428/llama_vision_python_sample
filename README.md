@@ -52,7 +52,7 @@ python3 vision2-tag2-jp.py ./sample-image/panda-small.jpg
 python3 vision2-tag3.py ./sample-image/panda-small.jpg
 ```
 
-``
+```
 Response Details:
   Model: llama3.2-vision:11b
   Created At (JST): 2024-11-23 15:13:25
@@ -73,7 +73,7 @@ Parsed Content:
     "睡眠"
   ]
 }
-``
+```
 
 ## STEP4 R18判定の追加
 
