@@ -10,3 +10,9 @@ https://ollama.com/
 ```
 pip install ollama
 ```
+
+## 実行例
+
+```
+python3 vision2-tag5-csv.py /mnt/c/Users/XXX/Downloads/hoge.jpg 
+```
